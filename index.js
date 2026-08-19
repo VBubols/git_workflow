@@ -2,6 +2,13 @@ const carrinho = [];
 
 function adicionarItem(nome, preco, quantidade = 1) {
   carrinho.push({ nome, preco, quantidade });
+  console.log(`Adicionado ao carrinho item: ${nome}`);
+}
+
+function deletarItem(nome) {
+    const index = carrinho.findIndex(item => item.nome === nome);
+    carrinho.splice(index, 1);
+    console.log(`Removido item do carrinho: ${nome}`);
 }
 
 function calcularTotal() {
@@ -17,4 +24,5 @@ function listarCarrinho() {
 
 adicionarItem("Teclado", 150.00);
 adicionarItem("Mouse", 80.00, 2);
+deletarItem("Teclado");
 listarCarrinho();
