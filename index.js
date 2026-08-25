@@ -9,15 +9,33 @@ const catalogo = [
 
 const carrinho = [];
 
-function adicionarItem(nome, preco, quantidade = 1) {
-  carrinho.push({ nome, preco, quantidade });
-  console.log(`Adicionado ao carrinho item: ${nome}`);
+function adicionarItem(indice) {
+  const produto = catalogo[indice];
+  if(!produto) {
+    console.log("Produto não existente.")
+    return
+  } 
+  const existente = carrinho.find((i) => i.nome === produto.nome);
+  if (existente) {
+    existente.quantidade++;
+  } else {
+    carrinho.push({ ...produto, quantidade: 1 });
+  }
+  console.log(`${produto.nome} adicionado.`);
 }
 
 function deletarItem(nome) {
-    const index = carrinho.findIndex(item => item.nome === nome);
-    carrinho.splice(index, 1);
-    console.log(`Removido item do carrinho: ${nome}`);
+  const indice = carrinho.findIndex((i) => i.nome.toLowerCase() === nome.toLowerCase());
+  if (indice === -1) {
+    console.log("Item não encontrado.");
+    return;
+  }
+  if (carrinho[indice].quantidade > 1) {
+    carrinho[indice].quantidade--;
+  } else {
+    carrinho.splice(indice, 1);
+  }
+  console.log("Removido.");
 }
 
 function calcularTotal() {
@@ -31,7 +49,8 @@ function listarCarrinho() {
   console.log(`Total: R$ ${calcularTotal().toFixed(2)}`);
 }
 
-adicionarItem("Teclado", 150.00);
-adicionarItem("Mouse", 80.00, 2);
-deletarItem("Teclado");
+adicionarItem(1);
+adicionarItem(1);
+adicionarItem(2);
+deletarItem("mouse")
 listarCarrinho();
