@@ -25,9 +25,17 @@ function adicionarItem(indice) {
 }
 
 function deletarItem(nome) {
-    const index = carrinho.findIndex(item => item.nome === nome);
-    carrinho.splice(index, 1);
-    console.log(`Removido item do carrinho: ${nome}`);
+  const indice = carrinho.findIndex((i) => i.nome.toLowerCase() === nome.toLowerCase());
+  if (indice === -1) {
+    console.log("Item não encontrado.");
+    return;
+  }
+  if (carrinho[indice].quantidade > 1) {
+    carrinho[indice].quantidade--;
+  } else {
+    carrinho.splice(indice, 1);
+  }
+  console.log("Removido.");
 }
 
 function calcularTotal() {
@@ -44,4 +52,5 @@ function listarCarrinho() {
 adicionarItem(1);
 adicionarItem(1);
 adicionarItem(2);
+deletarItem("mouse")
 listarCarrinho();
