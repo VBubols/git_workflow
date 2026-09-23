@@ -1,0 +1,22 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  docker:
+     runs-on: ubuntu-latest
+
+     steps:
+     - name: Checkout repository
+       uses: actions/checkout@v4
+ 
+     - name: Build image
+       run: docker build -t git-workflow .
+ 
+     - name: Run image
+       run: docker run --rm git-workflow
