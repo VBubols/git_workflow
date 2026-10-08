@@ -1,7 +1,5 @@
-const { adicionarItem, deletarItem, listarCarrinho } = require("./src/carrinho");
+import express from 'express';
 
-adicionarItem(1);
-adicionarItem(1);
-adicionarItem(2);
-deletarItem("mouse");
-listarCarrinho();
+const app = express();
+app.use(express.json());
+
