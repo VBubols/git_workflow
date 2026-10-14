@@ -1,7 +1,14 @@
-const { adicionarItem, deletarItem, listarCarrinho } = require("./src/carrinho");
+const express = require("express");
+const routerCarrinho = require("./routes/carrinho.routes");
+const routerCatalogo = require("./routes/catalogo.routes");
 
-adicionarItem(1);
-adicionarItem(1);
-adicionarItem(2);
-deletarItem("mouse");
-listarCarrinho();
+const app = express();
+app.use(express.json());
+
+app.use('/', routerCarrinho);
+app.use('/', routerCatalogo);
+
+const port = 3000;
+app.listen(port, () => {
+    console.log(`Rodando servidor na porta: ${port}`);
+});
