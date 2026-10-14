@@ -23,7 +23,7 @@ jobs:
 
      - name: Test Curl
        run: |
-        curl -fsS --retry 5 --retry-connrefused --retry-delay 1 localhost:3000/catalogo
+        curl -fsS --retry 5 --retry-all-errors --retry-delay 1 localhost:3000/catalogo
         curl -fsS -X POST -H "Content-Type: application/json" -d '{"indice":1}' localhost:3000/carrinho
         curl -fsS localhost:3000/carrinho
 
