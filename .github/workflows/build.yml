@@ -19,4 +19,18 @@ jobs:
        run: docker build -t git-workflow .
  
      - name: Run image
-       run: docker run --rm git-workflow
+       run: docker run -d -p 3000:3000 --name api git-workflow
+
+     - name: Test Curl
+       run: |
+        curl -fsS --retry 5 --retry-connrefused --retry-delay 1 localhost:3000/catalogo
+        curl -fsS -X POST -H "Content-Type: application/json" -d '{"indice":1}' localhost:3000/carrinho
+        curl -fsS localhost:3000/carrinho
+
+     - name: Show logs on failure
+       if: failure()
+       run: docker logs api
+
+     - name: Stop container
+       if: always()
+       run: docker stop api 
