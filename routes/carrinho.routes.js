@@ -1,5 +1,5 @@
 const express = require("express");
-const routerCarrinho = express.router();
+const routerCarrinho = express.Router();
 
 const {
     listarCarrinhoController,
