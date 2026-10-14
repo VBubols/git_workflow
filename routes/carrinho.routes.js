@@ -1,5 +1,5 @@
 const express = require("express");
-const router = express.Router();
+const routerCarrinho = express.router();
 
 const {
     listarCarrinhoController,
@@ -8,9 +8,9 @@ const {
     deletarItemController
 } = require("../controllers/carrinho.controller.js");
 
-router.get('/carrinho', listarCarrinhoController);
-router.delete('/carrinho', limparCarrinhoController);
-router.post('/carrinho', adicionarItemController);
-router.delete('/carrinho/:nome', deletarItemController);
+routerCarrinho.get('/carrinho', listarCarrinhoController);
+routerCarrinho.delete('/carrinho', limparCarrinhoController);
+routerCarrinho.post('/carrinho', adicionarItemController);
+routerCarrinho.delete('/carrinho/:nome', deletarItemController);
 
-module.exports = router;
+module.exports = routerCarrinho;
