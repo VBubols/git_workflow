@@ -3,7 +3,7 @@
 ![NODE JS](https://img.shields.io/badge/-NodeJS-2C682C?style=flat-square&logo=node&logoColor=black)
 ![Docker](https://img.shields.io/badge/-Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Express](https://img.shields.io/badge/Express.js-404D59?style=flat-square)
-[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=github-actions&logoColor=white)]
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=github-actions&logoColor=white)
 
 ![Tests](https://github.com/VBubols/git_workflow/actions/workflows/test.yml/badge.svg)
 ![Build](https://github.com/VBubols/git_workflow/actions/workflows/build.yml/badge.svg)
