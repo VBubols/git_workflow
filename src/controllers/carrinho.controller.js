@@ -1,69 +1,62 @@
-const {
-  limparCarrinho,
-  adicionarItem,
-  deletarItem,
-  obterCarrinho,
-  calcularTotal
-} = require("../src/carrinho");
+const carrinhoService = require('../services/carrinho.service');
 
-function listarCarrinhoController(req, res) {
-    try {
-        return res.status(200).json({ itens: obterCarrinho(), total: calcularTotal() });
-    } catch (error) {
-        return res.status(500).json({ mensagem: 'Erro interno no servidor' });
-    }
-};
+const ID_MAXIMO = 2147483647; // maior valor do tipo INTEGER no Postgres
+const MENSAGEM_ID_INVALIDO = 'produtoId deve ser um número inteiro positivo.';
 
-function limparCarrinhoController(req, res) {
-    try {
-        limparCarrinho();
-        return res.status(200).json({ mensagem: 'Carrinho limpo!' });
-    } catch (error) {
-        return res.status(500).json({ mensagem: 'Erro interno no servidor' });
-    }
-};
+function ehIdValido(id) {
+  return Number.isInteger(id) && id > 0 && id <= ID_MAXIMO;
+}
 
-function adicionarItemController(req, res) {
-    try {
-        const indice = req.body?.indice;
-        if(!Number.isInteger(indice)) {
-            return res.status(400).json({ mensagem: 'Requisição mal formada.' })
-        }
+// Parâmetros de rota sempre chegam como texto: "2" vira 2, "abc" ou "2.5" viram NaN.
+function converterParametroId(valor) {
+  return /^\d+$/.test(valor) ? Number(valor) : NaN;
+}
 
-        const produtoAdc = adicionarItem(indice);
+async function listarCarrinhoController(req, res) {
+  const carrinho = await carrinhoService.listar();
+  return res.status(200).json(carrinho);
+}
 
-        if (!produtoAdc) {
-            return res.status(404).json({ mensagem: 'Produto não encontrado' })
-        }
+async function adicionarItemController(req, res) {
+  const produtoId = req.body?.produtoId;
 
-        return res.status(201).json({ mensagem: 'Produto adicionado!'});
-    } catch (error) {
-        return res.status(500).json({ mensagem: 'Erro interno no servidor' });
-    }
-};
+  if (!ehIdValido(produtoId)) {
+    return res.status(400).json({ mensagem: MENSAGEM_ID_INVALIDO });
+  }
 
-function deletarItemController(req, res) {
-    try {
-        const nome = req.params.nome;
-        if(!nome) {
-            return res.status(400).json({ mensagem: 'Requisição mal formada.' })
-        }
+  const adicionado = await carrinhoService.adicionar(produtoId);
 
-        const produtoDel = deletarItem(nome);
+  if (!adicionado) {
+    return res.status(404).json({ mensagem: 'Produto não encontrado.' });
+  }
 
-        if (!produtoDel) {
-            return res.status(404).json({ mensagem: 'Item não encontrado no carrinho' })
-        }
+  return res.status(201).json({ mensagem: 'Produto adicionado!' });
+}
 
-        return res.status(200).json({ mensagem: 'Produto removido!'});
-    } catch (error) {
-        return res.status(500).json({ mensagem: 'Erro interno no servidor' });
-    }
-};
+async function deletarItemController(req, res) {
+  const produtoId = converterParametroId(req.params.produtoId);
+
+  if (!ehIdValido(produtoId)) {
+    return res.status(400).json({ mensagem: MENSAGEM_ID_INVALIDO });
+  }
+
+  const removido = await carrinhoService.remover(produtoId);
+
+  if (!removido) {
+    return res.status(404).json({ mensagem: 'Item não encontrado no carrinho.' });
+  }
+
+  return res.status(200).json({ mensagem: 'Produto removido!' });
+}
+
+async function limparCarrinhoController(req, res) {
+  await carrinhoService.limpar();
+  return res.status(200).json({ mensagem: 'Carrinho limpo!' });
+}
 
 module.exports = {
-    listarCarrinhoController,
-    limparCarrinhoController,
-    adicionarItemController,
-    deletarItemController
+  listarCarrinhoController,
+  adicionarItemController,
+  deletarItemController,
+  limparCarrinhoController,
 };

@@ -1,7 +1,7 @@
-const express = require("express");
-const routerCatalogo = express.Router();
+const express = require('express');
+const { catalogoController } = require('../controllers/catalogo.controller');
 
-const { catalogoController } = require("../controllers/catalogo.controller.js");
+const routerCatalogo = express.Router();
 
 routerCatalogo.get('/catalogo', catalogoController);
 

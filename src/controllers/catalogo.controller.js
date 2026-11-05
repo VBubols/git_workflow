@@ -1,11 +1,8 @@
-const catalogo = require("../src/catalogo");
+const catalogoService = require('../services/catalogo.service');
 
-function catalogoController(req, res) {
-    try {
-        return res.status(200).json(catalogo.map((produto, indice) => ({ indice, ...produto })));
-    } catch (error) {
-        return res.status(500).json({ mensagem: 'Erro interno no servidor' });
-    }
-};
+async function catalogoController(req, res) {
+  const produtos = await catalogoService.listar();
+  return res.status(200).json(produtos);
+}
 
 module.exports = { catalogoController };

@@ -1,14 +1,22 @@
-const express = require("express");
-const routerCarrinho = require("./routes/carrinho.routes");
-const routerCatalogo = require("./routes/catalogo.routes");
+const app = require('./app');
+const sequelize = require('./config/database');
+const { popularProdutos } = require('./seeds/produtos.seed');
 
-const app = express();
-app.use(express.json());
+const PORT = Number(process.env.PORT) || 3000;
 
-app.use('/', routerCarrinho);
-app.use('/', routerCatalogo);
+async function iniciar() {
+  try {
+    await sequelize.authenticate();
+    await sequelize.sync();
+    await popularProdutos();
 
-const port = 3000;
-app.listen(port, () => {
-    console.log(`Rodando servidor na porta: ${port}`);
-});
+    app.listen(PORT, () => {
+      console.log(`Servidor rodando na porta ${PORT}, conectado ao banco ${process.env.DB_NAME}`);
+    });
+  } catch (error) {
+    console.error('Falha ao iniciar a aplicação:', error.message);
+    process.exit(1);
+  }
+}
+
+iniciar();
