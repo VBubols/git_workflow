@@ -1,0 +1,154 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - dev
+
+env:
+  IMAGE_NAME: vbubols/git-workflow
+  DOCKERHUB_USER: vbubols
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Validate coverage report
+        run: test -s coverage/lcov.info
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create .env
+        run: cp .env.example .env
+
+      - name: Start containers
+        run: docker compose up -d --build
+
+      - name: Test API
+        run: |
+          curl -fsS --retry 10 --retry-all-errors --retry-delay 2 localhost:3000/health
+          curl -fsS localhost:3000/catalogo
+          curl -fsS -X POST -H "Content-Type: application/json" -d '{"produtoId":2}' localhost:3000/carrinho
+          curl -fsS -X POST -H "Content-Type: application/json" -d '{"produtoId":2}' localhost:3000/carrinho
+          curl -fsS localhost:3000/carrinho
+          curl -fsS -X DELETE localhost:3000/carrinho/2
+
+      - name: Test persistence after API restart
+        run: |
+          docker compose restart api
+          curl -fsS --retry 10 --retry-all-errors --retry-delay 2 localhost:3000/health
+          curl -fsS localhost:3000/carrinho | tee carrinho.json
+          grep -q '"produtoId":2,"nome":"Mouse","preco":80,"quantidade":1' carrinho.json
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop containers
+        if: always()
+        run: docker compose down -v
+
+  publish:
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency: publish
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate next version
+        run: |
+          if git tag --points-at HEAD | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Este commit já foi publicado como $(git tag --points-at HEAD | head -1)" >&2
+            exit 1
+          fi
+
+          ULTIMA=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          if [ -z "$ULTIMA" ]; then
+            echo "Nenhuma tag de versão encontrada. Crie a primeira, por exemplo v1.0.0." >&2
+            exit 1
+          fi
+
+          IFS=. read -r MAJOR MINOR PATCH <<< "${ULTIMA#v}"
+          VERSAO="$MAJOR.$MINOR.$((PATCH + 1))"
+
+          echo "Última versão: ${ULTIMA#v} | Nova versão: $VERSAO"
+          echo "VERSAO=$VERSAO" >> "$GITHUB_ENV"
+
+      - name: Check version is not on Docker Hub yet
+        run: |
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://hub.docker.com/v2/repositories/$IMAGE_NAME/tags/$VERSAO")
+
+          case "$STATUS" in
+            404) echo "Versão $VERSAO disponível para publicação." ;;
+            200) echo "A versão $VERSAO já existe no Docker Hub." >&2; exit 1 ;;
+            *) echo "Não foi possível consultar o Docker Hub (HTTP $STATUS)." >&2; exit 1 ;;
+          esac
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        run: |
+          docker build -t "$IMAGE_NAME:$VERSAO" -t "$IMAGE_NAME:latest" .
+          docker push "$IMAGE_NAME:$VERSAO"
+          docker push "$IMAGE_NAME:latest"
+
+      - name: Verify published image
+        run: |
+          docker rmi "$IMAGE_NAME:$VERSAO" "$IMAGE_NAME:latest"
+          docker pull "$IMAGE_NAME:$VERSAO"
+
+      - name: Create Git tag
+        run: |
+          git tag "v$VERSAO"
+          git push origin "v$VERSAO"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Imagem publicada: \`$IMAGE_NAME:$VERSAO\`"
+            echo ""
+            echo "- Docker Hub: https://hub.docker.com/r/$IMAGE_NAME/tags"
+            echo "- Tag no GitHub: https://github.com/$GITHUB_REPOSITORY/releases/tag/v$VERSAO"
+          } >> "$GITHUB_STEP_SUMMARY"
