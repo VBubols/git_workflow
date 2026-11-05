@@ -1,7 +1,6 @@
 # git_workflow
 
-![Tests](https://github.com/VBubols/git_workflow/actions/workflows/test.yml/badge.svg)
-![Build](https://github.com/VBubols/git_workflow/actions/workflows/build.yml/badge.svg)
+![CI/CD](https://github.com/VBubols/git_workflow/actions/workflows/pipeline.yml/badge.svg)
 
 API REST de carrinho de compras feita com Node.js, Express e Sequelize, com os dados em PostgreSQL. A API e o banco rodam em containers separados, orquestrados com Docker Compose, e cada mudança é validada por pipelines no GitHub Actions.
 
@@ -226,10 +225,13 @@ A integração real entre a API e o banco é testada no pipeline `Build`.
 
 ## CI/CD
 
-Os dois workflows rodam em todo pull request e em todo push para `main` e `dev`.
+O pipeline (`pipeline.yml`) roda em todo pull request e em todo push para `main` e `dev`, com três jobs em sequência:
 
-- **Tests** (`test.yml`): instala as dependências, roda ESLint, confere a formatação e executa os testes com cobertura.
-- **Build** (`build.yml`): sobe a API e o banco com Docker Compose e valida o fluxo completo com `curl` (health, catálogo, adicionar, listar e remover). Depois reinicia o container da API e confere que o carrinho continua no banco, provando a persistência. Em caso de falha, exibe os logs dos containers. No final, sempre derruba o ambiente.
+1. **test**: instala as dependências, roda o ESLint, confere a formatação e executa os testes com cobertura.
+2. **docker**: sobe a API e o banco com Docker Compose, valida o fluxo completo com `curl` e confere a persistência depois de reiniciar a API.
+3. **publish**: só no push para a `main`. Calcula a próxima versão a partir da última tag `vX.Y.Z` do repositório, incrementando apenas o PATCH. Publica a imagem no Docker Hub com a versão e com `latest`, confere a publicação baixando a imagem e cria a tag correspondente no GitHub.
+
+Imagens publicadas: [vbubols/git-workflow](https://hub.docker.com/r/vbubols/git-workflow/tags)
 
 ## Fluxo de trabalho Git
 
