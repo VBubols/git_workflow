@@ -6,7 +6,12 @@ const ItemCarrinho = sequelize.define(
   {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
     produtoId: { type: DataTypes.INTEGER, allowNull: false, unique: true, field: 'produto_id' },
-    quantidade: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1, validate: { min: 1 } },
+    quantidade: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+      validate: { min: 1 },
+    },
   },
   {
     tableName: 'itens_carrinho',
