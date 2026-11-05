@@ -1,97 +1,142 @@
-# Git_workflow
-
-![NODE JS](https://img.shields.io/badge/-NodeJS-2C682C?style=flat-square&logo=node&logoColor=black)
-![Docker](https://img.shields.io/badge/-Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
-![Express](https://img.shields.io/badge/Express.js-404D59?style=flat-square)
-![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=github-actions&logoColor=white)
+# git_workflow
 
 ![Tests](https://github.com/VBubols/git_workflow/actions/workflows/test.yml/badge.svg)
 ![Build](https://github.com/VBubols/git_workflow/actions/workflows/build.yml/badge.svg)
 
-API REST de carrinho de compras feita com Node.js e Express, empacotada em Docker e validada por pipelines de CI no GitHub Actions.
+API REST de carrinho de compras feita com Node.js, Express e Sequelize, com os dados em PostgreSQL. A API e o banco rodam em containers separados, orquestrados com Docker Compose, e cada mudança é validada por pipelines no GitHub Actions.
 
-O projeto começou como um carrinho de linha de comando e evoluiu para uma API. A lógica de negócio continua isolada em `src/` e coberta por testes, e a camada HTTP fica por cima dela.
+## Arquitetura
+
+```
+            Docker Compose (rede interna)
+ ┌───────────────────────────────────────────────┐
+ │                                               │
+ │   ┌─────────────┐   db:5432   ┌────────────┐  │
+ │   │     api     │ ──────────► │     db     │  │
+ │   │  Node 22    │             │ Postgres 16│  │
+ │   └─────────────┘             └────────────┘  │
+ │         ▲                           │         │
+ └─────────┼───────────────────────────┼─────────┘
+           │ localhost:3000            │ volume pgdata
+        cliente                    dados persistidos
+```
+
+- A API acessa o banco pelo **nome do serviço** (`db`), resolvido pela rede interna do Compose. O banco não expõe porta para fora.
+- A API só sobe depois que o banco passa no **healthcheck** (`pg_isready`).
+- Os dados ficam no **volume `pgdata`** e sobrevivem a restarts e a `docker compose down`.
+
+### Camadas da aplicação
+
+```
+routes → controllers → services → repositories → models (Sequelize) → PostgreSQL
+```
+
+| Camada         | Responsabilidade                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| `routes`       | Liga método e caminho HTTP ao controller                                                 |
+| `controllers`  | Lê a requisição, valida a entrada e define o status da resposta                          |
+| `services`     | Regras de negócio: incrementar quantidade, remover uma unidade por vez, calcular o total |
+| `repositories` | Acesso ao banco pelo Sequelize, sem regra de negócio                                     |
+| `models`       | Estrutura das tabelas `produtos` e `itens_carrinho`                                      |
+| `middlewares`  | Tratamento centralizado de erros e de rotas inexistentes                                 |
+
+Os services dependem só dos repositories. Por isso as regras são testadas sem banco, trocando os repositories por versões falsas.
 
 ## Stack
 
-- **Node.js 22** e **Express 5**
-- **Jest** para testes unitários
-- **Docker** para empacotar e rodar a API
-- **GitHub Actions** para testes e validação da imagem
+- **Node.js 22**, **Express 5**
+- **PostgreSQL 16** com **Sequelize 6**
+- **Docker** e **Docker Compose**
+- **Jest** e **Supertest** para testes
+- **ESLint** e **Prettier** para padronização
+- **GitHub Actions** para CI
 
 ## Estrutura
 
 ```
 .
 ├── .github/workflows/
-│   ├── build.yml               # build da imagem e teste da API no container
-│   └── test.yml                # testes unitários com cobertura
-├── controllers/
-│   ├── carrinho.controller.js  # valida a entrada e define o status HTTP
-│   └── catalogo.controller.js
-├── routes/
-│   ├── carrinho.routes.js      # liga método + caminho ao controller
-│   └── catalogo.routes.js
+│   ├── build.yml             # sobe o Compose e testa a API integrada ao banco
+│   └── test.yml              # lint, formatação e testes com cobertura
 ├── src/
-│   ├── carrinho.js             # regras do carrinho
-│   └── catalogo.js             # produtos disponíveis
+│   ├── config/database.js    # conexão do Sequelize, lida das variáveis de ambiente
+│   ├── controllers/
+│   ├── middlewares/
+│   ├── models/
+│   ├── repositories/
+│   ├── routes/
+│   ├── seeds/                # catálogo inicial de produtos
+│   ├── services/
+│   ├── app.js                # cria o app Express e registra rotas e middlewares
+│   └── index.js              # conecta ao banco, cria as tabelas, popula e sobe o servidor
 ├── tests/
-│   └── carrinho.test.js
-├── Dockerfile
-└── index.js                    # servidor Express
+│   ├── routes/               # testes dos endpoints com Supertest
+│   └── services/             # testes das regras de negócio
+├── .env.example
+├── docker-compose.yml
+└── Dockerfile
 ```
-
-O fluxo de uma requisição é **rota → controller → regra de negócio**. As funções de `src/` retornam `true` ou `false`, e o controller traduz esse resultado no status HTTP adequado.
 
 ## Como rodar
 
-### Localmente
-
-Pré-requisito: Node.js 22.
+Pré-requisito: Docker com o Docker Compose.
 
 ```bash
-npm install
-npm start
+cp .env.example .env
+docker compose up --build
 ```
 
-A API sobe em `http://localhost:3000`.
-
-### Com Docker (build local)
+Ao iniciar, a API conecta ao banco, cria as tabelas e popula o catálogo se ele estiver vazio. Para conferir a comunicação entre os containers:
 
 ```bash
-docker build -t git-workflow .
-docker run -d -p 3000:3000 --name git-workflow git-workflow
+curl localhost:3000/health
 ```
 
-Para ver os logs: `docker logs git-workflow`. Para parar e remover: `docker rm -f git-workflow`.
+```json
+{ "api": "ok", "banco": "conectado" }
+```
 
-### Com a imagem do Docker Hub
-
-A imagem está publicada em [vbubols/git-workflow](https://hub.docker.com/r/vbubols/git-workflow):
+Para parar:
 
 ```bash
-docker run -d -p 3000:3000 --name git-workflow vbubols/git-workflow:latest
+docker compose down      # para os containers e mantém os dados
+docker compose down -v   # para os containers e apaga o volume do banco
 ```
+
+### Variáveis de ambiente
+
+| Variável      | Uso                                     | Padrão      |
+| ------------- | --------------------------------------- | ----------- |
+| `DB_NAME`     | Nome do banco                           | sem padrão  |
+| `DB_USER`     | Usuário do banco                        | sem padrão  |
+| `DB_PASSWORD` | Senha do banco                          | sem padrão  |
+| `DB_HOST`     | Host do banco (no Compose, sempre `db`) | `localhost` |
+| `DB_PORT`     | Porta do banco                          | `5432`      |
+| `PORT`        | Porta da API                            | `3000`      |
+
+O `.env` não vai para o repositório. O `.env.example` mostra o que preencher.
 
 ## Endpoints
 
-| Método | Rota | Descrição | Sucesso |
-|---|---|---|---|
-| `GET` | `/catalogo` | Lista os produtos com seus índices | `200` |
-| `GET` | `/carrinho` | Lista os itens do carrinho e o total | `200` |
-| `POST` | `/carrinho` | Adiciona uma unidade de um produto pelo índice | `201` |
-| `DELETE` | `/carrinho/:nome` | Remove uma unidade de um item pelo nome | `200` |
-| `DELETE` | `/carrinho` | Esvazia o carrinho | `200` |
+| Método   | Rota                   | Descrição                              | Sucesso |
+| -------- | ---------------------- | -------------------------------------- | ------- |
+| `GET`    | `/health`              | Status da API e da conexão com o banco | `200`   |
+| `GET`    | `/catalogo`            | Lista os produtos                      | `200`   |
+| `GET`    | `/carrinho`            | Lista os itens do carrinho e o total   | `200`   |
+| `POST`   | `/carrinho`            | Adiciona uma unidade de um produto     | `201`   |
+| `DELETE` | `/carrinho/:produtoId` | Remove uma unidade de um item          | `200`   |
+| `DELETE` | `/carrinho`            | Esvazia o carrinho                     | `200`   |
 
 ### Erros
 
-| Status | Quando acontece |
-|---|---|
-| `400` | `POST` sem um `indice` inteiro no corpo da requisição |
-| `404` | `POST` com índice fora do catálogo, ou `DELETE` de um item que não está no carrinho |
-| `500` | Erro inesperado no servidor |
+| Status | Quando acontece                                                                       |
+| ------ | ------------------------------------------------------------------------------------- |
+| `400`  | `produtoId` ausente, não inteiro ou não positivo, ou JSON inválido no corpo           |
+| `404`  | Produto inexistente no `POST`, item fora do carrinho no `DELETE`, ou rota inexistente |
+| `500`  | Erro inesperado no servidor                                                           |
+| `503`  | `/health` quando o banco está indisponível                                            |
 
-Todas as respostas de erro seguem o formato `{ "mensagem": "..." }`.
+As respostas de erro seguem o formato `{ "mensagem": "..." }`.
 
 ### Exemplos
 
@@ -103,21 +148,21 @@ curl localhost:3000/catalogo
 
 ```json
 [
-  { "indice": 0, "nome": "Teclado", "preco": 150 },
-  { "indice": 1, "nome": "Mouse", "preco": 80 },
-  { "indice": 2, "nome": "Monitor", "preco": 900 },
-  { "indice": 3, "nome": "Gabinete", "preco": 120 },
-  { "indice": 4, "nome": "Headset", "preco": 320 },
-  { "indice": 5, "nome": "Cadeira Gamer", "preco": 540 }
+  { "id": 1, "nome": "Teclado", "preco": 150 },
+  { "id": 2, "nome": "Mouse", "preco": 80 },
+  { "id": 3, "nome": "Monitor", "preco": 900 },
+  { "id": 4, "nome": "Gabinete", "preco": 120 },
+  { "id": 5, "nome": "Headset", "preco": 320 },
+  { "id": 6, "nome": "Cadeira Gamer", "preco": 540 }
 ]
 ```
 
 **Adicionar um produto**
 
-O corpo precisa ser JSON, com o header `Content-Type: application/json`. Adicionar um produto que já está no carrinho aumenta a quantidade.
+Adicionar um produto que já está no carrinho aumenta a quantidade.
 
 ```bash
-curl -X POST -H "Content-Type: application/json" -d '{"indice": 1}' localhost:3000/carrinho
+curl -X POST -H "Content-Type: application/json" -d '{"produtoId": 2}' localhost:3000/carrinho
 ```
 
 ```json
@@ -133,8 +178,8 @@ curl localhost:3000/carrinho
 ```json
 {
   "itens": [
-    { "nome": "Mouse", "preco": 80, "quantidade": 2 },
-    { "nome": "Teclado", "preco": 150, "quantidade": 1 }
+    { "produtoId": 2, "nome": "Mouse", "preco": 80, "quantidade": 2 },
+    { "produtoId": 1, "nome": "Teclado", "preco": 150, "quantidade": 1 }
   ],
   "total": 310
 }
@@ -142,17 +187,15 @@ curl localhost:3000/carrinho
 
 **Remover um item**
 
-Remove uma unidade por vez. Quando a quantidade chega a zero, o item sai do carrinho. A busca pelo nome não diferencia maiúsculas de minúsculas.
+Remove uma unidade por vez. Quando a quantidade chega a zero, o item sai do carrinho.
 
 ```bash
-curl -X DELETE localhost:3000/carrinho/mouse
+curl -X DELETE localhost:3000/carrinho/2
 ```
 
 ```json
 { "mensagem": "Produto removido!" }
 ```
-
-Para nomes com espaço, codifique na URL: `/carrinho/cadeira%20gamer`.
 
 **Esvaziar o carrinho**
 
@@ -164,23 +207,29 @@ curl -X DELETE localhost:3000/carrinho
 { "mensagem": "Carrinho limpo!" }
 ```
 
-## Testes
+## Testes e qualidade
 
 ```bash
 npm test               # roda os testes
-npm run test:coverage  # roda os testes e gera o relatório de cobertura
+npm run test:coverage  # testes com relatório de cobertura
+npm run lint           # ESLint
+npm run format:check   # confere a formatação do Prettier
+npm run format         # aplica a formatação
 ```
 
-Os testes cobrem as regras de negócio em `src/`: adição, remoção, cálculo do total, formatação e casos de borda, como índices inválidos e itens inexistentes.
+Os testes são divididos em dois níveis, nenhum deles depende do banco:
+
+- **Services:** regras de negócio com os repositories mockados (produto inexistente, incremento, decremento, remoção, cálculo do total, conversão do preço).
+- **Endpoints:** requisições HTTP com Supertest e os services mockados (status codes, validação do `produtoId`, JSON inválido, erros internos, rotas inexistentes).
+
+A integração real entre a API e o banco é testada no pipeline `Build`.
 
 ## CI/CD
 
 Os dois workflows rodam em todo pull request e em todo push para `main` e `dev`.
 
-- **Tests** (`test.yml`): instala as dependências com Node 22, roda o Jest com cobertura e confere se o relatório foi gerado.
-- **Build** (`build.yml`): constrói a imagem Docker, sobe o container e valida a API com `curl`, percorrendo o fluxo consultar catálogo → adicionar item → ver carrinho. Se algum passo falhar, o workflow exibe os logs do container. No final, o container é sempre parado.
-
-Como o `curl` usa `-f`, qualquer resposta `4xx` ou `5xx` derruba o job. O primeiro `curl` tenta de novo por alguns segundos, dando tempo para o servidor subir antes da validação.
+- **Tests** (`test.yml`): instala as dependências, roda ESLint, confere a formatação e executa os testes com cobertura.
+- **Build** (`build.yml`): sobe a API e o banco com Docker Compose e valida o fluxo completo com `curl` (health, catálogo, adicionar, listar e remover). Depois reinicia o container da API e confere que o carrinho continua no banco, provando a persistência. Em caso de falha, exibe os logs dos containers. No final, sempre derruba o ambiente.
 
 ## Fluxo de trabalho Git
 
@@ -192,6 +241,5 @@ Toda mudança entra por pull request: `feat/*` ou `fix/*` para `dev`, e depois `
 
 ## Observações
 
-- **O carrinho vive em memória.** Reiniciar o servidor ou o container zera o carrinho.
-- **Existe um único carrinho**, compartilhado por todos que acessam a API.
-- **A porta é fixa em 3000.**
+- O catálogo é inserido apenas quando a tabela de produtos está vazia, então reiniciar a aplicação não duplica os produtos.
+- Existe um único carrinho, compartilhado por todos que acessam a API.
