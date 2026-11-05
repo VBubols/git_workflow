@@ -12,12 +12,17 @@
   "jest": {
     "testEnvironment": "node",
     "collectCoverageFrom": [
-      "src/**/*.js"
+      "src/app.js",
+      "src/controllers/**/*.js",
+      "src/middlewares/**/*.js",
+      "src/routes/**/*.js",
+      "src/services/**/*.js"
     ]
   },
   "license": "MIT",
   "devDependencies": {
-    "jest": "^30.5.1"
+    "jest": "^30.5.1",
+    "supertest": "^7.3.1"
   },
   "dependencies": {
     "dotenv": "^16.6.1",
