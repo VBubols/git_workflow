@@ -1,10 +1,10 @@
 {
   "name": "git_workflow",
   "version": "1.0.0",
-  "description": "Carrinho de compras em linha de comando",
-  "main": "index.js",
+  "description": "API REST de carrinho de compras com Express, Sequelize e PostgreSQL, orquestrada com Docker Compose",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node src/index.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
@@ -20,6 +20,7 @@
     "jest": "^30.5.1"
   },
   "dependencies": {
+    "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "pg": "^8.23.1",
     "pg-hstore": "^2.3.4",
