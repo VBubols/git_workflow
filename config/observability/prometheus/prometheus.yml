@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Coleta das métricas da API (endpoint /metrics), pelo nome do serviço no compose.
+  - job_name: api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:3000"]
+
+  # O próprio Prometheus, útil para verificar a coleta.
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

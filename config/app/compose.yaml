@@ -1,0 +1,21 @@
+services:
+  api:
+    name: test-api
+    build:
+      context: ../..
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    env_file:
+      - ../../.env
+    environment:
+      # Dentro da rede do compose, o banco é acessado pelo nome do serviço.
+      DB_HOST: db
+      DB_PORT: 3306
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
