@@ -1,8 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: api
-    folder: API
+  # Carrega os dashboards em JSON desta pasta dentro da pasta "git_workflow" do Grafana.
+  - name: git_workflow
+    folder: git_workflow
     type: file
     disableDeletion: true
     allowUiUpdates: false
