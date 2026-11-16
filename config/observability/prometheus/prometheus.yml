@@ -3,13 +3,18 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  # Coleta das métricas da API (endpoint /metrics), pelo nome do serviço no compose.
+  # Métricas da API (endpoint /metrics), acessada pelo nome do serviço no compose.
   - job_name: api
     metrics_path: /metrics
     static_configs:
-      - targets: ["api:3000"]
+      - targets: ['api:3000']
 
-  # O próprio Prometheus, útil para verificar a coleta.
+  # Métricas do PostgreSQL, expostas pelo postgres-exporter.
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # O próprio Prometheus, útil para conferir se a coleta está funcionando.
   - job_name: prometheus
     static_configs:
-      - targets: ["localhost:9090"]
+      - targets: ['localhost:9090']
