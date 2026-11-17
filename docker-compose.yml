@@ -32,3 +32,6 @@ services:
 
 volumes:
   pgdata:
+
+include:
+  - config/observability/compose.yaml

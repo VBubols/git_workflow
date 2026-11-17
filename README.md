@@ -2,7 +2,7 @@
 
 ![CI/CD](https://github.com/VBubols/git_workflow/actions/workflows/pipeline.yml/badge.svg)
 
-API REST de carrinho de compras feita com Node.js, Express e Sequelize, com os dados em PostgreSQL. A API e o banco rodam em containers separados, orquestrados com Docker Compose, e cada mudança é validada por pipelines no GitHub Actions.
+API REST de carrinho de compras feita com Node.js, Express e Sequelize, com os dados em PostgreSQL. A API e o banco rodam em containers separados, orquestrados com Docker Compose, com Prometheus e Grafana para observabilidade. Cada mudança é validada por pipelines no GitHub Actions.
 
 ## Arquitetura
 
@@ -46,6 +46,7 @@ Os services dependem só dos repositories. Por isso as regras são testadas sem 
 - **Node.js 22**, **Express 5**
 - **PostgreSQL 16** com **Sequelize 6**
 - **Docker** e **Docker Compose**
+- **Prometheus** e **Grafana** para observabilidade, com **postgres-exporter** para o banco
 - **Jest** e **Supertest** para testes
 - **ESLint** e **Prettier** para padronização
 - **GitHub Actions** para CI
@@ -55,8 +56,15 @@ Os services dependem só dos repositories. Por isso as regras são testadas sem 
 ```
 .
 ├── .github/workflows/
-│   ├── build.yml             # sobe o Compose e testa a API integrada ao banco
-│   └── test.yml              # lint, formatação e testes com cobertura
+│   └── pipeline.yml          # test → docker → publish
+├── config/observability/
+│   ├── compose.yaml          # Prometheus, Grafana e postgres-exporter
+│   ├── prometheus/           # o que o Prometheus coleta
+│   ├── grafana/              # fonte de dados e dashboards provisionados
+│   ├── prints/               # evidências dos dashboards
+│   └── README.md             # explicação dos painéis e das métricas
+├── scripts/
+│   └── carga.sh              # gera tráfego para a demonstração
 ├── src/
 │   ├── config/database.js    # conexão do Sequelize, lida das variáveis de ambiente
 │   ├── controllers/
@@ -67,12 +75,13 @@ Os services dependem só dos repositories. Por isso as regras são testadas sem 
 │   ├── seeds/                # catálogo inicial de produtos
 │   ├── services/
 │   ├── app.js                # cria o app Express e registra rotas e middlewares
-│   └── index.js              # conecta ao banco, cria as tabelas, popula e sobe o servidor
+│   ├── index.js              # conecta ao banco, cria as tabelas, popula e sobe o servidor
+│   └── metrics.js            # métricas expostas em /metrics
 ├── tests/
 │   ├── routes/               # testes dos endpoints com Supertest
 │   └── services/             # testes das regras de negócio
 ├── .env.example
-├── docker-compose.yml
+├── docker-compose.yml        # api e db, e inclui o compose de observabilidade
 └── Dockerfile
 ```
 
@@ -115,10 +124,28 @@ docker compose down -v   # para os containers e apaga o volume do banco
 
 O `.env` não vai para o repositório. O `.env.example` mostra o que preencher.
 
+## Observabilidade
+
+A API expõe métricas no formato do Prometheus em `/metrics`. O Prometheus coleta essas métricas e as do banco (via postgres-exporter), e o Grafana mostra tudo em dashboards já provisionados.
+
+| Serviço    | Endereço                | Acesso                      |
+| ---------- | ----------------------- | --------------------------- |
+| Grafana    | `http://localhost:3001` | `admin` / `admin` (do .env) |
+| Prometheus | `http://localhost:9090` | sem login                   |
+
+Configurações, dashboards, explicação das métricas e evidências ficam em [`config/observability`](config/observability).
+
+Para gerar tráfego e ver os painéis em movimento:
+
+```bash
+./scripts/carga.sh
+```
+
 ## Endpoints
 
 | Método   | Rota                   | Descrição                              | Sucesso |
 | -------- | ---------------------- | -------------------------------------- | ------- |
+| `GET`    | `/metrics`             | Métricas no formato do Prometheus      | `200`   |
 | `GET`    | `/health`              | Status da API e da conexão com o banco | `200`   |
 | `GET`    | `/catalogo`            | Lista os produtos                      | `200`   |
 | `GET`    | `/carrinho`            | Lista os itens do carrinho e o total   | `200`   |
