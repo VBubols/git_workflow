@@ -1,5 +1,6 @@
 const carrinhoRepository = require('../repositories/carrinho.repository');
 const produtoRepository = require('../repositories/produto.repository');
+const { itensAdicionadosTotal } = require('../metrics');
 
 function formatarItem(item) {
   return {
@@ -36,6 +37,7 @@ async function adicionar(produtoId) {
     await carrinhoRepository.criar(produtoId);
   }
 
+  itensAdicionadosTotal.inc({ produto: produto.nome });
   return true;
 }
 

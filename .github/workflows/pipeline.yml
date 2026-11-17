@@ -67,8 +67,34 @@ jobs:
         run: |
           docker compose restart api
           curl -fsS --retry 10 --retry-all-errors --retry-delay 2 localhost:3000/health
-          curl -fsS localhost:3000/carrinho | tee carrinho.json
-          grep -q '"produtoId":2,"nome":"Mouse","preco":80,"quantidade":1' carrinho.json
+          CARRINHO=$(curl -fsS localhost:3000/carrinho)
+          echo "$CARRINHO"
+          echo "$CARRINHO" | grep -q '"produtoId":2,"nome":"Mouse","preco":80,"quantidade":1'
+
+      - name: Test observability
+        run: |
+          echo "API expõe as métricas"
+          curl -fsS localhost:3000/metrics | grep -E '^(http_requests_total|carrinho_itens_adicionados_total)'
+
+          echo "Prometheus coleta a API e o banco (os dois alvos com up = 1)"
+          for tentativa in $(seq 1 24); do
+            if curl -fsS -G localhost:9090/api/v1/query \
+              --data-urlencode 'query=count(up{job=~"api|postgres"} == 1)' | grep -q '"2"\]'; then
+              ALVOS_OK=1
+              break
+            fi
+            sleep 5
+          done
+          curl -fsS -G localhost:9090/api/v1/query --data-urlencode 'query=up'
+          echo
+          [ "$ALVOS_OK" = 1 ]
+
+          echo "Grafana carrega os dashboards provisionados"
+          curl -fsS --retry 12 --retry-all-errors --retry-delay 5 localhost:3001/api/health
+          DASHBOARDS=$(curl -fsS -u "admin:$(grep GRAFANA_ADMIN_PASSWORD .env | cut -d= -f2)" 'localhost:3001/api/search?type=dash-db')
+          echo "$DASHBOARDS"
+          echo "$DASHBOARDS" | grep -q '"uid":"api-carrinho"'
+          echo "$DASHBOARDS" | grep -q '"uid":"banco-postgres"'
 
       - name: Show logs on failure
         if: failure()

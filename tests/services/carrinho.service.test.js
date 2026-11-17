@@ -15,9 +15,16 @@ jest.mock('../../src/repositories/produto.repository', () => ({
 const carrinhoRepository = require('../../src/repositories/carrinho.repository');
 const produtoRepository = require('../../src/repositories/produto.repository');
 const carrinhoService = require('../../src/services/carrinho.service');
+const { itensAdicionadosTotal } = require('../../src/metrics');
+
+async function totalAdicionado(produto) {
+  const { values } = await itensAdicionadosTotal.get();
+  return values.find((valor) => valor.labels.produto === produto)?.value ?? 0;
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
+  itensAdicionadosTotal.reset();
 });
 
 describe('listar', () => {
@@ -69,6 +76,25 @@ describe('adicionar', () => {
     await expect(carrinhoService.adicionar(2)).resolves.toBe(true);
     expect(carrinhoRepository.criar).toHaveBeenCalledWith(2);
     expect(carrinhoRepository.incrementarQuantidade).not.toHaveBeenCalled();
+  });
+
+  test('conta a unidade adicionada na métrica de negócio, pelo nome do produto', async () => {
+    produtoRepository.buscarPorId.mockResolvedValue({ id: 2, nome: 'Mouse', preco: '80.00' });
+    carrinhoRepository.buscarPorProdutoId.mockResolvedValue(null);
+
+    await carrinhoService.adicionar(2);
+    await carrinhoService.adicionar(2);
+
+    expect(await totalAdicionado('Mouse')).toBe(2);
+  });
+
+  test('não conta na métrica de negócio quando o produto não existe', async () => {
+    produtoRepository.buscarPorId.mockResolvedValue(null);
+
+    await carrinhoService.adicionar(99);
+
+    const { values } = await itensAdicionadosTotal.get();
+    expect(values).toHaveLength(0);
   });
 
   test('incrementa a quantidade quando o produto já está no carrinho', async () => {

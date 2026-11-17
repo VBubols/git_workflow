@@ -19,7 +19,8 @@
       "src/controllers/**/*.js",
       "src/middlewares/**/*.js",
       "src/routes/**/*.js",
-      "src/services/**/*.js"
+      "src/services/**/*.js",
+      "src/metrics.js"
     ]
   },
   "license": "MIT",
@@ -37,6 +38,7 @@
     "express": "^5.2.1",
     "pg": "^8.23.1",
     "pg-hstore": "^2.3.4",
+    "prom-client": "^15.1.3",
     "sequelize": "^6.37.8"
   }
 }
